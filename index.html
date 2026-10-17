@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ポケモン言えるかな？</title>
+<style>
+body{font-family:sans-serif;background:#fff8e8;text-align:center;margin:0;padding:20px;color:#333}
+h1{color:#e94b4b;font-size:25px}
+input,button{font-size:17px;padding:12px;border-radius:12px;border:1px solid #ccc}
+input{width:65%;max-width:260px}
+button{background:#ff6969;color:white;border:0;margin:5px}
+#grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:20px}
+.card{background:white;border-radius:12px;padding:5px;min-width:0}
+.card img{width:100%;max-width:100px;height:90px;object-fit:contain}
+.name{font-size:13px;overflow-wrap:anywhere}
+.hidden img{filter:brightness(0)}
+.hidden .name{color:#aaa}
+#message{min-height:28px;font-weight:bold}
+</style>
+</head>
+<body>
+<h1>🌟 ポケモン言えるかな？ 🌟</h1>
+<p>ポケモンの名前を入力してね！</p>
+<input id="answer" placeholder="ポケモンの名前">
+<button onclick="check()">回答！</button>
+<p id="message">ポケモンを読み込み中…</p>
+<p>正解：<b id="count">0</b> 匹</p>
+<div id="grid"></div>
+<script>
+const DATA="https://raw.githubusercontent.com/kotofurumiya/pokemon_data/main/data/pokemon_data.json";
+let pokemon=[];
+let found=JSON.parse(localStorage.getItem("pokemon-found")||"[]");
+const grid=document.getElementById("grid");
+const normalize=s=>String(s||"").trim().replace(/\s/g,"").replace(/　/g,"").toLowerCase();
+
+async function start(){
+ try{
+  const res=await fetch(DATA);
+  if(!res.ok)throw Error();
+  const data=await res.json();
+  pokemon=data.filter(p=>p.name&&!p.isMegaEvolution);
+  pokemon.forEach((p,i)=>{p.id=String(p.no||i+1)});
+  pokemon=pokemon.filter((p,i,a)=>a.findIndex(x=>normalize(x.name)===normalize(p.name))===i);
+  render();
+  document.getElementById("message").textContent="名前を入力して挑戦しよう！";
+ }catch(e){
+  document.getElementById("message").textContent="読み込み失敗。ページを再読み込みしてね。";
+ }
+}
+function check(){
+ const value=normalize(document.getElementById("answer").value);
+ if(!value)return;
+ const p=pokemon.find(x=>normalize(x.name)===value);
+ if(!p){document.getElementById("message").textContent="まだ見つからないよ。名前を確認してね！";return;}
+ if(found.includes(p.name)){document.getElementById("message").textContent="このポケモンは正解済みだよ！";return;}
+ found.push(p.name);
+ localStorage.setItem("pokemon-found",JSON.stringify(found));
+ document.getElementById("message").textContent="🎉 正解！ "+p.name+"！";
+ document.getElementById("answer").value="";
+ render();
+}
+function render(){
+ document.getElementById("count").textContent=found.length;
+ grid.innerHTML="";
+ pokemon.forEach(p=>{
+  const yes=found.includes(p.name);
+  const card=document.createElement("div");
+  card.className="card"+(yes?"":" hidden");
+  const img=document.createElement("img");
+  img.src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/"+p.id+".png";
+  img.alt="";
+  img.onerror=()=>{img.style.visibility="hidden";};
+  const name=document.createElement("div");
+  name.className="name";
+  name.textContent=yes?p.name:"？？？";
+  card.append(img,name);
+  grid.append(card);
+ });
+}
+document.getElementById("answer").addEventListener("keydown",e=>{if(e.key==="Enter")check()});
+start();
+</script>
+</body>
+</html>
